@@ -1,0 +1,59 @@
+{
+  "name": "@sonatel-os/maxit-mini-sdk",
+  "version": "0.1.0",
+  "description": "The host-plugin SDK for Max It mini-programs: miniSDK.user(), .login(), .pay(), .contacts()… with clean results and typed errors. Vendored into a mini-program by `npx @sonatel-os/maxit-mini-sdk update` — no node_modules in the app.",
+  "type": "module",
+  "bin": {
+    "maxit-mini-sdk": "cli/index.js"
+  },
+  "files": [
+    "cli/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,mjs,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md}\"",
+    "manifest": "node scripts/build-manifest.mjs",
+    "manifest:check": "node scripts/build-manifest.mjs --check",
+    "release": "yarn test && yarn lint && yarn manifest",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LPIX-11/maxit-mini-sdk.git"
+  },
+  "keywords": [
+    "tcmpp",
+    "mini-program",
+    "max-it",
+    "sonatel",
+    "orange-money",
+    "sdk"
+  ],
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^9",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6",
+    "vitest": "^4.1.11"
+  }
+}
