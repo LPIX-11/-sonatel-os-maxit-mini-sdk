@@ -21,7 +21,7 @@ describe('mock host', () => {
 
     const confirms = [];
     const paid = await miniSDK.pay(
-      { amount: 1000, receiver: 1, receiverName: 'M', message: 'm' },
+      { amount: 1000, receiver: 1, receiverName: 'M', description: 'm', orderId: 'O-1' },
       { onIdentical: async (m) => (confirms.push(m), true) }
     );
     expect(confirms).toHaveLength(1);

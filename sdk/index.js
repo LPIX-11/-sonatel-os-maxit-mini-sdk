@@ -26,7 +26,13 @@ import { hasHost, runtime, invoke, withRetry } from './core/invoke.js';
 import { HostError, ERROR_CODES, isHostError } from './core/errors.js';
 import { user, API as USER_API } from './apis/user.js';
 import { login, API as LOGIN_API } from './apis/login.js';
-import { pay, readIdenticalPrompt, CONTINUE_ACTION, API as PAY_API } from './apis/pay.js';
+import {
+  pay,
+  buildHostPayload,
+  readIdenticalPrompt,
+  CONTINUE_ACTION,
+  API as PAY_API,
+} from './apis/pay.js';
 import { contacts, normaliseContacts, API as CONTACTS_API } from './apis/contacts.js';
 import { deeplink, normaliseParams, maskParams, API as DEEPLINK_API } from './apis/deeplink.js';
 import { screen, API as SCREEN_API } from './apis/screen.js';
@@ -91,6 +97,7 @@ export const miniSDK = Object.freeze({
     normaliseParams,
     maskParams,
     readIdenticalPrompt,
+    buildHostPayload,
     CONTINUE_ACTION,
   }),
 });
@@ -121,5 +128,6 @@ export {
   normaliseParams,
   maskParams,
   readIdenticalPrompt,
+  buildHostPayload,
   CONTINUE_ACTION,
 };

@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generatedAt": "2026-10-29T19:13:32.369Z",
+  "generatedAt": "2026-10-29T22:12:30.039Z",
   "files": [
     {
       "path": "sdk/VERSION",
@@ -24,8 +24,8 @@
     },
     {
       "path": "sdk/apis/pay.js",
-      "sha256": "e58f0db72c1c02df967a8e8bf0b9a2b643a3c58f5d168087916c6760b752a7ad",
-      "bytes": 9275
+      "sha256": "ccd4ab3153c7aaa242fc4e1fc0655bafa4852179697d41173965a1b4f97dfc8b",
+      "bytes": 13008
     },
     {
       "path": "sdk/apis/scan.js",
@@ -64,13 +64,13 @@
     },
     {
       "path": "sdk/index.js",
-      "sha256": "507c32b033b883dbdaccf08b39099fb3cea8b0977608855787847ae741397358",
-      "bytes": 3949
+      "sha256": "6b423cc396a6154c5e97f680dba230a3561e9341ba7f98bc541aa367e321dc06",
+      "bytes": 4020
     },
     {
       "path": "sdk/mock/host.js",
-      "sha256": "7c7895d5956ed6d2f13aac35641eaf3d90b95e1ec05bc484ba066ed1a2c1420b",
-      "bytes": 3960
+      "sha256": "a84812e34936a82b7b8ec81057cf3d924bec6a04ac70b5d3ca0f47240cecfdd5",
+      "bytes": 4217
     }
   ]
 }

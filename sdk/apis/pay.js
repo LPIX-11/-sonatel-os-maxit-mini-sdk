@@ -1,16 +1,23 @@
 // ============================================================================
-// miniSDK.pay(payload, options) — an Orange Money merchant payment, done.
+// miniSDK.pay(order, options) — an Orange Money merchant payment, done.
 //
-//   const { txnid } = await miniSDK.pay({ amount, receiver, receiverName, message, serviceId });
+//   const { txnid } = await miniSDK.pay({
+//     amount: 2000, receiver: 467652, receiverName: 'Ma Boutique',
+//     orderId: 'ORD-1', description: 'Pass journée',
+//   });
 //
 // What the SDK handles so the app does not:
-//   • the payload's required fields and types (INVALID before anything leaves)
+//   • the HOST PAYLOAD: the app describes the order in plain terms; the SDK
+//     builds what the host's `merchantPay` expects (see buildHostPayload and
+//     HOST_CONTRACT.md) — including the nested `payload` block the host reads
+//     the merchant and the reference from, and the ONE correlation key
+//     (`serviceId` OR `idService`, never both: the host refuses the pair).
 //   • the host's "identical transaction — continuer ?" prompt: the host
 //     refuses a second identical payment (same payer, merchant, amount) for
 //     ~15 min and returns a txnid ON THE FAILURE; on the user's yes, the SDK
 //     retries ONCE with `{txnid, caction: '1'}` — the flag MUST be a string,
 //     the host's typed request rejects a number. The user's no is DECLINED.
-//   • the result's shape: the host is not consistent about the id's name
+//   • the result's shape: the host is not consistent about the id's name.
 //   • the error's meaning: CANCELLED / REFUSED are "nothing debited";
 //     TIMEOUT / HOST_ERROR carry `uncertain: true` — the money MAY have
 //     moved, and the app must not simply let the user pay again.
@@ -26,14 +33,17 @@ export const API = 'merchantPay';
 /** The caction value that says "the user confirmed this identical transaction". A STRING. */
 export const CONTINUE_ACTION = '1';
 
+/** The currency the host debits in. */
+export const CURRENCY = 'XOF';
+
 /** Wordings the host uses for the identical-transaction prompt. */
 const DUPLICATE_PATTERNS = [/continuer\s*\??$/, /identique/, /similaire/, /m[êe]me transaction/];
 
 /** Keys the host is known to use for the transaction id. */
 const TXN_ID_KEYS = ['txnid', 'trxReference', 'transactionId', 'reference', 'transactionID'];
 
-/** The payload fields the host requires. */
-const REQUIRED = ['amount', 'receiver', 'receiverName', 'message'];
+/** The order fields the SDK requires before anything leaves the app. */
+const REQUIRED = ['amount', 'receiver', 'receiverName', 'description'];
 
 let simulatedIdenticalDone = false;
 
@@ -95,33 +105,114 @@ export const readIdenticalPrompt = (error) => {
 };
 
 /**
- * Validate the payload before anything leaves the app.
- * @param {Object} payload
+ * @param {*} value
+ * @returns {string}
+ */
+const text = (value) => (value === undefined || value === null ? '' : String(value).trim());
+
+/**
+ * The ONE correlation key the host accepts: `serviceId` or `idService`,
+ * never both. The order id stands in when neither was given.
+ * @param {Object} order
+ * @returns {{key: 'serviceId'|'idService', value: string}|null}
+ * @throws {HostError} INVALID when both are given with different values
+ */
+export const correlationOf = (order) => {
+  const serviceId = text(order.serviceId);
+  const idService = text(order.idService);
+  if (serviceId && idService && serviceId !== idService) {
+    throw new HostError(ERROR_CODES.INVALID, {
+      api: API,
+      hostMessage: 'serviceId et idService sont exclusifs : un seul des deux',
+    });
+  }
+  if (idService && !serviceId) {
+    return { key: 'idService', value: idService };
+  }
+  const value = serviceId || text(order.orderId);
+  return value ? { key: 'serviceId', value } : null;
+};
+
+/**
+ * Validate the order before anything leaves the app.
+ * @param {Object} order
  * @throws {HostError} INVALID
  */
-const validate = (payload) => {
-  const problems = [];
-  if (!payload || typeof payload !== 'object') {
-    throw new HostError(ERROR_CODES.INVALID, { api: API, hostMessage: 'payload is not an object' });
+const validate = (order) => {
+  if (!order || typeof order !== 'object') {
+    throw new HostError(ERROR_CODES.INVALID, { api: API, hostMessage: 'order is not an object' });
   }
+  const problems = [];
   REQUIRED.forEach((key) => {
-    if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+    if (text(order[key]) === '') {
       problems.push(`${key} manquant`);
     }
   });
-  const amount = Number(payload.amount);
+  const amount = Number(order.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
     problems.push('amount doit être un nombre > 0');
   }
-  if (payload.receiver !== undefined && !Number.isFinite(Number(payload.receiver))) {
+  if (order.receiver !== undefined && !Number.isFinite(Number(order.receiver))) {
     problems.push('receiver doit être le code marchand (numérique)');
   }
-  if (Number(payload.receiver) === 0) {
+  if (Number(order.receiver) === 0) {
     problems.push('receiver 0 enverrait l’argent nulle part');
+  }
+  if (!correlationOf(order)) {
+    problems.push('orderId (ou serviceId) manquant : le débit doit porter une référence');
   }
   if (problems.length) {
     throw new HostError(ERROR_CODES.INVALID, { api: API, hostMessage: problems.join(' · ') });
   }
+};
+
+/**
+ * The host's `merchantPay` request, from a plain order.
+ *
+ * Shape (HOST_CONTRACT.md § merchantPay, as the fleet sends it in 2026-10):
+ *   amount · currency · receiver · receiverName · orderId · orderDescription ·
+ *   message · ONE of serviceId / idService · reference · customerMsisdn ·
+ *   payload: { nom_marchand, code_marchand, reference } — the block the host
+ *   reads the merchant and the reference from (a replace, not a merge, on the
+ *   native side: send it whole) · any `extra` the app wants to pass through.
+ *
+ * @param {Object} order - see `pay`
+ * @returns {Object} what goes on the wire
+ */
+export const buildHostPayload = (order) => {
+  const correlation = correlationOf(order);
+  const reference =
+    text(order.reference) || text(order.orderId) || (correlation && correlation.value);
+  const description = text(order.description);
+  const receiverName = text(order.receiverName);
+  const body = {
+    amount: Number(order.amount),
+    currency: text(order.currency) || CURRENCY,
+    receiver: Number(order.receiver),
+    receiverName,
+    orderDescription: description,
+    message: description,
+    payload: {
+      nom_marchand: receiverName,
+      code_marchand: String(Number(order.receiver)),
+      reference: reference || null,
+      ...(order.payload && typeof order.payload === 'object' ? order.payload : {}),
+    },
+    ...(order.extra && typeof order.extra === 'object' ? order.extra : {}),
+  };
+  if (text(order.orderId)) {
+    body.orderId = text(order.orderId);
+  }
+  if (correlation) {
+    body[correlation.key] = correlation.value;
+  }
+  if (reference) {
+    body.reference = reference;
+  }
+  if (text(order.customerMsisdn)) {
+    body.customerMsisdn = text(order.customerMsisdn);
+  }
+  return body;
 };
 
 /**
@@ -148,11 +239,11 @@ const defaultConfirm = (message) =>
 
 /**
  * One merchantPay call → `{txnid, raw}`.
- * @param {Object} payload
+ * @param {Object} body - the host payload
  * @returns {Promise<{txnid: string, raw: *}>}
  */
-const payOnce = async (payload) => {
-  const data = await invoke(API, payload);
+const payOnce = async (body) => {
+  const data = await invoke(API, body);
   const txnid = txnidOf(data) || txnidOf(data && data.data);
   if (!txnid) {
     throw new HostError(ERROR_CODES.HOST_ERROR, {
@@ -167,12 +258,12 @@ const payOnce = async (payload) => {
 /**
  * A simulated payment: a fake txnid after a short delay; once, the identical
  * prompt when the fixture asks for it.
- * @param {Object} payload
+ * @param {Object} body
  * @returns {Promise<{txnid: string, raw: *}>}
  */
-const simulatePay = async (payload) => {
+const simulatePay = async (body) => {
   await delay();
-  if (fixtures().identicalOnce && !simulatedIdenticalDone && !payload.txnid) {
+  if (fixtures().identicalOnce && !simulatedIdenticalDone && !body.txnid) {
     simulatedIdenticalDone = true;
     throw new HostError(ERROR_CODES.HOST_ERROR, {
       api: API,
@@ -180,7 +271,7 @@ const simulatePay = async (payload) => {
       raw: { txnid: 'MP-DEV-DUP' },
     });
   }
-  const txnid = payload.txnid || fixtures().txnid();
+  const txnid = body.txnid || fixtures().txnid();
   return { txnid, raw: { txnid, simulated: true } };
 };
 
@@ -188,23 +279,31 @@ const simulatePay = async (payload) => {
  * @typedef {Object} PayResult
  * @property {string} txnid - the Orange Money transaction id
  * @property {boolean} confirmedIdentical - the user confirmed an identical-transaction prompt
+ * @property {Object} sent - the host payload that was sent (for your records / telemetry)
  * @property {*} raw - the host's answer, untouched
  */
 
 /**
  * Run an Orange Money merchant payment.
  *
- * @param {Object} payload
- * @param {number} payload.amount - XOF, > 0
- * @param {number|string} payload.receiver - the MERCHANT CODE the money lands on (never 0)
- * @param {string} payload.receiverName - merchant display name
- * @param {string} payload.message - what the customer reads on the sheet
- * @param {string} [payload.serviceId] - your order id, carried into the debit
- *   (what makes a later verification exact); sent as `idService` too
- * @param {string} [payload.reference] - copied by the host into the debit's metadata
- * @param {number} [payload.merchantMsisdn] - the shared merchant-pay line
- * @param {number} [payload.fees=0]
- * @param {string} [payload.appInfo] - application identifier
+ * @param {Object} order - the order, in plain terms
+ * @param {number} order.amount - XOF, > 0
+ * @param {number|string} order.receiver - the MERCHANT CODE the money lands on (never 0)
+ * @param {string} order.receiverName - merchant display name
+ * @param {string} order.description - what the customer reads on the sheet
+ * @param {string} [order.orderId] - your order id; the correlation key and the
+ *   reference default to it
+ * @param {string} [order.serviceId] - the correlation key carried into the
+ *   debit (exact-match key for a later verification); defaults to orderId
+ * @param {string} [order.idService] - the same key under the host's other
+ *   name — give ONE of serviceId / idService, never both
+ * @param {string} [order.reference] - copied by the host into the debit's
+ *   metadata; defaults to orderId
+ * @param {string} [order.customerMsisdn]
+ * @param {string} [order.currency='XOF']
+ * @param {Object} [order.payload] - extra fields merged into the host's
+ *   nested `payload` block
+ * @param {Object} [order.extra] - extra top-level fields passed through as is
  * @param {Object} [options]
  * @param {(message: string) => Promise<boolean>} [options.onIdentical] - your
  *   dialog for the identical-transaction prompt; defaults to the configured
@@ -214,18 +313,15 @@ const simulatePay = async (payload) => {
  *   debited) · TIMEOUT · HOST_ERROR (`uncertain: true` — verify before
  *   letting the user pay again)
  */
-export const pay = async (payload, { onIdentical } = {}) => {
-  validate(payload);
-  const body = { ...payload };
-  if (body.serviceId && body.idService === undefined) {
-    body.idService = body.serviceId;
-  }
+export const pay = async (order, { onIdentical } = {}) => {
+  validate(order);
+  const body = buildHostPayload(order);
   const run = isSimulated() ? simulatePay : payOnce;
 
   try {
     const first = await run(body);
     log('info', API, 'payment confirmed', { txnid: first.txnid });
-    return { ...first, confirmedIdentical: false };
+    return { ...first, confirmedIdentical: false, sent: body };
   } catch (error) {
     const prompt = readIdenticalPrompt(error);
     if (!prompt) {
@@ -248,9 +344,10 @@ export const pay = async (payload, { onIdentical } = {}) => {
     }
 
     // Exactly one retry, not re-wrapped: no loop even if the host prompts again.
-    const second = await run({ ...body, txnid: prompt.txnid, caction: CONTINUE_ACTION });
+    const retryBody = { ...body, txnid: prompt.txnid, caction: CONTINUE_ACTION };
+    const second = await run(retryBody);
     log('info', API, 'identical transaction confirmed', { txnid: second.txnid });
-    return { ...second, confirmedIdentical: true };
+    return { ...second, confirmedIdentical: true, sent: retryBody };
   }
 };
 

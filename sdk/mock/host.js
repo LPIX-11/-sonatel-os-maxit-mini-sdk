@@ -33,6 +33,12 @@ export const createMockHost = (fixtures = {}, { latencyMs = 120, identicalOnce =
     userInfos: () => ok({ user: { ...fx.user } }),
     login: () => ok({ code: fx.loginCode }),
     merchantPay: (data) => {
+      if (data.serviceId !== undefined && data.idService !== undefined) {
+        return ko('serviceId and idService are exclusive');
+      }
+      if (!data.payload || typeof data.payload !== 'object') {
+        return ko('payload block missing');
+      }
       if (state.identicalPending && !data.txnid) {
         state.identicalPending = false;
         return ko('Vous venez d effectuer une transaction identique. Continuer ?', {

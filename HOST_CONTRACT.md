@@ -29,17 +29,21 @@ Plugins are **not ready the instant the app launches**: the first `userInfos` or
 
 - Request:
 
-| Field                    | Type   | Note                                                                                                 |
-| ------------------------ | ------ | ---------------------------------------------------------------------------------------------------- |
-| `amount`                 | number | XOF                                                                                                  |
-| `receiver`               | number | the **merchant code** (the account the money lands on), never the msisdn, never 0                    |
-| `receiverName`           | string | merchant display name                                                                                |
-| `message`                | string | what the customer reads on the sheet                                                                 |
-| `merchantMsisdn`         | number | the shared Sonatel merchant-pay line                                                                 |
-| `fees`                   | number | typically 0                                                                                          |
-| `appInfo`                | string | application identifier                                                                               |
-| `serviceId`, `idService` | string | the app's order id, carried into the debit (the host's expected spelling is undocumented: send both) |
-| `reference`              | string | copied by the host into the debit's metadata                                                         |
+| Field                               | Type   | Note                                                                                                                                                                        |
+| ----------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `amount`                            | number | XOF                                                                                                                                                                         |
+| `receiver`                          | number | the **merchant code** (the account the money lands on), never the msisdn, never 0                                                                                           |
+| `receiverName`                      | string | merchant display name                                                                                                                                                       |
+| `orderDescription`, `message`       | string | what the customer reads on the sheet (both names have been used; the SDK sends both)                                                                                        |
+| `orderId`                           | string | the app's order id                                                                                                                                                          |
+| `serviceId` **or** `idService`      | string | the correlation key the host records on the debit (the exact-match key for a later verification). **Exclusive: the host accepts one of the two, never both** (2026-10).     |
+| `reference`                         | string | copied by the host into the debit's metadata                                                                                                                                |
+| `payload`                           | object | `{ nom_marchand, code_marchand, reference }` — the block the host reads the merchant and the reference from. A **replace, not a merge**, on the native side: send it whole. |
+| `currency`                          | string | `XOF`                                                                                                                                                                       |
+| `customerMsisdn`                    | string | optional                                                                                                                                                                    |
+| `merchantMsisdn`, `fees`, `appInfo` | —      | older fields some apps still send; tolerated, not required (pass them through `extra` if your backend reads them)                                                           |
+
+- Observed: `amount` has been accepted both as a number and as a string.
 
 - Answer: `data.txnid` — also seen as `trxReference`, `transactionId`, `reference`.
 - **Identical transaction.** The host refuses a second identical payment (same payer, merchant, amount) for about 15 minutes with a `success` failure envelope whose message ends in « … continuer ? » (variants: « identique », « similaire », « même transaction ») and which **carries a `txnid`** at the top level of the envelope. To proceed, the app calls `merchantPay` again with the same payload plus `txnid` and **`caction: '1'` — a string**: the host's typed request has `caction` as a nullable string and a number fails its type check before the payment runs (fixed in production 2026-10-24).

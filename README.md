@@ -12,10 +12,12 @@ const { txnid } = await miniSDK.pay({
   amount: 2000,
   receiver: 467652, // the merchant code
   receiverName: 'Ma Boutique',
-  message: 'Pass journée',
-  serviceId: orderId, // your order id, carried into the debit
+  orderId: 'ORD-1', // your order id: the correlation key and the reference default to it
+  description: 'Pass journée',
 });
 ```
+
+You describe the order; the SDK builds the host's request — the nested `payload` block (`nom_marchand`, `code_marchand`, `reference`), **one** correlation key (`serviceId` or `idService`, never both: the host refuses the pair), the description under both names the host has used. `result.sent` is what went on the wire.
 
 The identical-transaction prompt, the string `caction`, the txnid hidden on a failure, the contact list that answers empty when handed a `data` key, the one-shot deep link, the host-wide capture mask: all inside.
 

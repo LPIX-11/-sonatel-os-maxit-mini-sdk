@@ -6,7 +6,14 @@
 // ============================================================================
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { pay, readIdenticalPrompt, txnidOf, CONTINUE_ACTION, resetPaySimulation } from './pay.js';
+import {
+  pay,
+  buildHostPayload,
+  readIdenticalPrompt,
+  txnidOf,
+  CONTINUE_ACTION,
+  resetPaySimulation,
+} from './pay.js';
 import { configure, resetConfig } from '../core/config.js';
 import { HostError } from '../core/errors.js';
 
@@ -14,8 +21,8 @@ const PAYLOAD = {
   amount: 2000,
   receiver: 467652,
   receiverName: 'Ma Boutique',
-  message: 'Pass journée',
-  serviceId: 'ORD-1',
+  description: 'Pass journée',
+  orderId: 'ORD-1',
 };
 
 const ok = (data) => ({ result: 'success', status_code: 200, data });
@@ -59,10 +66,73 @@ describe('pay — validation', () => {
     expect(h).not.toHaveBeenCalled();
   });
 
-  it('mirrors serviceId into idService', async () => {
+  it('refuses an order without any reference, and serviceId + idService together', async () => {
+    const h = host(ok({ txnid: 'X' }));
+    await expect(pay({ ...PAYLOAD, orderId: undefined })).rejects.toMatchObject({
+      code: 'INVALID',
+    });
+    await expect(pay({ ...PAYLOAD, serviceId: 'A', idService: 'B' })).rejects.toMatchObject({
+      code: 'INVALID',
+    });
+    expect(h).not.toHaveBeenCalled();
+  });
+});
+
+describe('pay — the host payload', () => {
+  it('builds the host request from a plain order: ONE correlation key, the nested payload block', () => {
+    expect(buildHostPayload(PAYLOAD)).toEqual({
+      amount: 2000,
+      currency: 'XOF',
+      receiver: 467652,
+      receiverName: 'Ma Boutique',
+      orderId: 'ORD-1',
+      orderDescription: 'Pass journée',
+      message: 'Pass journée',
+      serviceId: 'ORD-1',
+      reference: 'ORD-1',
+      payload: { nom_marchand: 'Ma Boutique', code_marchand: '467652', reference: 'ORD-1' },
+    });
+  });
+
+  it('never sends serviceId and idService together', () => {
+    const a = buildHostPayload({ ...PAYLOAD, serviceId: 'SVC-1' });
+    expect(a.serviceId).toBe('SVC-1');
+    expect(a).not.toHaveProperty('idService');
+
+    const b = buildHostPayload({ ...PAYLOAD, idService: 'maxStore.app' });
+    expect(b.idService).toBe('maxStore.app');
+    expect(b).not.toHaveProperty('serviceId');
+
+    const same = buildHostPayload({ ...PAYLOAD, serviceId: 'S', idService: 'S' });
+    expect(same.serviceId).toBe('S');
+    expect(same).not.toHaveProperty('idService');
+  });
+
+  it('lets the app set the reference, the customer, the currency, and pass extras through', () => {
+    const body = buildHostPayload({
+      ...PAYLOAD,
+      reference: 'E2E-9',
+      customerMsisdn: '770000001',
+      currency: 'XOF',
+      payload: { canal: 'MP' },
+      extra: { appInfo: 'my-app', fees: 0 },
+    });
+    expect(body.reference).toBe('E2E-9');
+    expect(body.payload).toEqual({
+      nom_marchand: 'Ma Boutique',
+      code_marchand: '467652',
+      reference: 'E2E-9',
+      canal: 'MP',
+    });
+    expect(body.customerMsisdn).toBe('770000001');
+    expect(body).toMatchObject({ appInfo: 'my-app', fees: 0 });
+  });
+
+  it('is what goes on the wire, and comes back on the result as `sent`', async () => {
     const h = host(ok({ txnid: 'MP-1' }));
-    await pay(PAYLOAD);
-    expect(h.mock.calls[0][0].data).toMatchObject({ serviceId: 'ORD-1', idService: 'ORD-1' });
+    const res = await pay(PAYLOAD);
+    expect(h.mock.calls[0][0].data).toEqual(buildHostPayload(PAYLOAD));
+    expect(res.sent).toEqual(buildHostPayload(PAYLOAD));
   });
 });
 
