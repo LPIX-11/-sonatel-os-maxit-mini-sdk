@@ -11,7 +11,7 @@
 
 import { createHash } from 'node:crypto';
 
-export const REPO = 'LPIX-11/maxit-mini-sdk';
+export const REPO = 'LPIX-11/-sonatel-os-maxit-mini-sdk';
 export const DEFAULT_DIR = 'sdk';
 export const RAW_BASE = `https://raw.githubusercontent.com/${REPO}`;
 export const API_BASE = `https://api.github.com/repos/${REPO}`;

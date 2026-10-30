@@ -110,7 +110,7 @@ const main = async () => {
   await mkdir(DIST_DIR, { recursive: true });
   const header =
     `// @sonatel-os/maxit-mini-sdk ${version} — generated, obfuscated bundle. Do not edit.\n` +
-    `// Source: https://github.com/LPIX-11/maxit-mini-sdk (readable sdk/).\n`;
+    `// Source: https://github.com/LPIX-11/-sonatel-os-maxit-mini-sdk (readable sdk/).\n`;
   await writeFile(DIST_INDEX, `${header}${obfuscated}\n`);
   await writeFile(join(DIST_DIR, 'VERSION'), `${version}\n`);
 

@@ -38,7 +38,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LPIX-11/maxit-mini-sdk.git"
+    "url": "git+https://github.com/LPIX-11/-sonatel-os-maxit-mini-sdk.git"
   },
   "keywords": [
     "tcmpp",
