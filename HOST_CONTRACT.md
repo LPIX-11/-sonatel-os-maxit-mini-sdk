@@ -67,7 +67,8 @@ Plugins are **not ready the instant the app launches**: the first `userInfos` or
 - Request: `{}`.
 - Answer: `data.params` — the map of everything after the « ? » of the URL the host opened the mini-program from (`https://<host>/mini-apps/<appId>?a=b`). **One-shot**: the host clears its copy once read. `null`/absent when nothing is pending.
 - Observed: links are also issued in a **slash form** (`…/mini-apps/<appId>/a=b&c=d`). The host's router captures `:id` with `.*`, so the tail arrives glued to the app id, as one key or one value. The SDK expands both.
-- The launch options' `query` is a second source (DevTools compile condition; a host passing `MiniStartOptions.params`). The host's wins.
+- The launch options' `query` is a second source (DevTools compile condition). The host's wins.
+- **Since 2026-10-30 the host starts the mini-program with TCMPP `MiniStartOptions.params`** — a STRING (the link's tail, issued as `https://<host>/miniapps/<appId>??a=b&c=d`, TWO question marks) that the runtime hands to `App.onLaunch`/`onShow` as **`options.referrerInfo.extraData`** (and `options.extendData`), not as `options.query` (TCMPP « Basic » doc, getLaunchOptionsSync: Android `extraData` = `MiniStartOptions.params`, iOS = `paramsStr`). Pass the WHOLE options object to `deeplink({launch})`; the SDK reads `path?…` → `query` → `extraData` → `extendData` and strips the stray `?` from keys. ⚠ `onShow` repeats the same options on every resume; the SDK now handles this itself — `deeplink()` is one-shot by default (it fingerprints the resolved params and answers `null` for a repeat), so calling it on every `onShow` no longer re-routes on an app switch. Pass `{once: false}` to opt out.
 
 ## Not plugins, but handled
 
@@ -79,4 +80,4 @@ Plugins are **not ready the instant the app launches**: the first `userInfos` or
 1. Is there a plugin registry / version the mini-program can read, so `supports()` can answer per plugin?
 2. The documented spelling of the order id on `merchantPay` (`serviceId` vs `idService`).
 3. A share plugin contract (`appInfo` semantics, file path vs data URI) — not wrapped until confirmed.
-4. Whether the slash-form deep link will be parsed host-side (the `?` form already works).
+4. ~~Whether the slash-form deep link will be parsed host-side~~ — superseded 2026-10-30 by `MiniStartOptions.params`; is `getDeeplinkParams` still populated by the new build, or is the launch-options door now the only one?

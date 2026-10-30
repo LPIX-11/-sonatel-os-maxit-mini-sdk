@@ -2,6 +2,14 @@
 
 All notable changes to the vendored `sdk/` folder. The updater prints the sections between your installed version and the one it installs.
 
+## [0.1.1] - 2026-10-30
+
+- `miniSDK.deeplink({launch})` reads the host's NEW door: since 2026-10-30 the host starts the mini-program with TCMPP `MiniStartOptions.params`, which the runtime hands to `onLaunch`/`onShow` as `options.referrerInfo.extraData` / `options.extendData` — pass the whole options object. Reads `path?…` → `query` → `extraData` → `extendData`, the later winning.
+- The issued link now carries TWO question marks (`…/miniapps/<appId>??msisdn=…`): keys are stripped of a stray `?`/`&`/`/` — `?msisdn` never reaches your router. A JSON object serialised in the params string is read as a map.
+- `miniSDK.deeplink({launch})` is now **one-shot by default**: it fingerprints the resolved params and answers `null` for a repeat, so calling it on every `App.onShow` no longer re-routes on an app switch (the runtime repeats the same launch options on every resume). Pass `{once: false}` to always resolve; `miniSDK.resetDeeplink()` clears the memory (e.g. a fresh cold launch). This moves the dedup that each app carried into the SDK.
+- `mockLaunchOptions(params, {door})` in `sdk/mock/host.js`: builds runtime launch/show options that carry params through the new door (`referrerInfo.extraData`, `extendData`), the compile-condition `query`, or the `??` path form — so DevTools and tests can rehearse the launch-options door, which is not a `wx` call the mock host could fake.
+- HOST_CONTRACT: the `getDeeplinkParams` section documents the new door and that the SDK now one-shots the resume.
+
 ## [0.1.0] - 2026-10-29
 
 First cut, extracted from the mini-programs in production (ticketing, transit, eSIM, tax).

@@ -34,13 +34,19 @@ import {
   API as PAY_API,
 } from './apis/pay.js';
 import { contacts, normaliseContacts, API as CONTACTS_API } from './apis/contacts.js';
-import { deeplink, normaliseParams, maskParams, API as DEEPLINK_API } from './apis/deeplink.js';
+import {
+  deeplink,
+  resetDeeplink,
+  normaliseParams,
+  maskParams,
+  API as DEEPLINK_API,
+} from './apis/deeplink.js';
 import { screen, API as SCREEN_API } from './apis/screen.js';
 import { scan, API as SCAN_API } from './apis/scan.js';
 import { normaliseMsisdn, isSenegalMobile, identityOf } from './helpers/msisdn.js';
 
 /** The SDK version, kept in step with sdk/VERSION by the release script. */
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 
 /** The host plugins this SDK speaks to, by SDK method. */
 export const HOST_APIS = Object.freeze({
@@ -80,6 +86,7 @@ export const miniSDK = Object.freeze({
   pay,
   contacts,
   deeplink,
+  resetDeeplink,
   scan,
   screen,
   HostError,
@@ -113,6 +120,7 @@ export {
   pay,
   contacts,
   deeplink,
+  resetDeeplink,
   scan,
   screen,
   HostError,

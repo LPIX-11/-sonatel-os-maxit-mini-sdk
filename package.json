@@ -1,6 +1,6 @@
 {
   "name": "@sonatel-os/maxit-mini-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The host-plugin SDK for Max It mini-programs: miniSDK.user(), .login(), .pay(), .contacts()… with clean results and typed errors. Vendored into a mini-program by `npx @sonatel-os/maxit-mini-sdk update` — no node_modules in the app.",
   "type": "module",
   "bin": {

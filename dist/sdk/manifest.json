@@ -1,15 +1,15 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "files": [
     {
       "path": "dist/sdk/VERSION",
-      "sha256": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67",
+      "sha256": "80447316529fc62014fbaa047fb67c51ac30e32830cda370405349d8d66d196c",
       "bytes": 6
     },
     {
       "path": "dist/sdk/index.js",
-      "sha256": "59a5a616e95dc8668bedf8dd70dc9c753fe4db5ed4b346ddee3f2372ee40a3bc",
-      "bytes": 37618
+      "sha256": "615c65ae9cbf77aa31bf665c4dcebc51818c7dfc25887cc86b67ebe5895d0e53",
+      "bytes": 40478
     }
   ]
 }

@@ -89,6 +89,41 @@ export const createMockHost = (fixtures = {}, { latencyMs = 120, identicalOnce =
 };
 
 /**
+ * Build runtime launch/show options that carry deep-link params through one of
+ * the host's doors, for DevTools and tests. The launch-options door is NOT a
+ * `wx` call — the runtime hands these to `App.onLaunch`/`onShow` — so the mock
+ * host cannot fake it; this is how you rehearse the new path: feed the result
+ * to `miniSDK.deeplink({ launch })`.
+ *
+ *   miniSDK.deeplink({ launch: mockLaunchOptions({ page: 'detail', id: '42' }) });
+ *
+ * @param {Object<string, string>} [params] - the params the link carries
+ * @param {Object} [options]
+ * @param {'extraData'|'extendData'|'query'|'doubleQuestion'} [options.door='extraData']
+ *   which door to simulate: the host's `MiniStartOptions.params` arrives as
+ *   `referrerInfo.extraData` (the real new door, default) or `extendData`;
+ *   `query` is the DevTools compile-condition; `doubleQuestion` is the issued
+ *   `…/miniapps/<appId>??k=v` path form.
+ * @returns {Object} options shaped like the runtime's launch/show options
+ */
+export const mockLaunchOptions = (params = {}, { door = 'extraData' } = {}) => {
+  const tail = Object.keys(params)
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
+    .join('&');
+  const base = { path: 'pages/index/index', scene: 1001 };
+  if (door === 'query') {
+    return { ...base, query: { ...params } };
+  }
+  if (door === 'extendData') {
+    return { ...base, extendData: tail };
+  }
+  if (door === 'doubleQuestion') {
+    return { path: `pages/index/index??${tail}`, scene: 1001 };
+  }
+  return { ...base, referrerInfo: { appId: 'mock-host', extraData: tail } };
+};
+
+/**
  * Install the mock on the `wx` global when the runtime has no host.
  * @param {Object} [fixtures]
  * @param {Object} [options] - see createMockHost

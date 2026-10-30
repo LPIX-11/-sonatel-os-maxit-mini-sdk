@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/install-npx%20update-FF7900?style=for-the-badge&logo=npm&logoColor=white" alt="Install: npx update" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-3C873A?style=for-the-badge&logo=node.js&logoColor=white" alt="Node >= 18" />
   <img src="https://img.shields.io/badge/module-ESM-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="ESM" />
-  <img src="https://img.shields.io/badge/tests-74%20vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="74 tests · vitest" />
+  <img src="https://img.shields.io/badge/tests-77%20vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="77 tests · vitest" />
   <img src="https://img.shields.io/badge/lint-eslint%209-4B32C3?style=for-the-badge&logo=eslint&logoColor=white" alt="ESLint 9" />
   <img src="https://img.shields.io/badge/ships-obfuscated-black?style=for-the-badge&logo=gnuprivacyguard&logoColor=white" alt="Ships obfuscated" />
 </p>
@@ -299,11 +299,14 @@ const params = await miniSDK.deeplink({ launch: options }); // in onLaunch/onSho
 if (params?.page) routeTo(params.page, params.id);
 ```
 
-| Param            | Type | Note                                                                                  |
-| ---------------- | ---- | ------------------------------------------------------------------------------------- |
-| `options.launch` | `*`  | Your launch/show options (or their `query`) — a second source. The host's params win. |
+| Param            | Type      | Default | Note                                                                                                                                                                          |
+| ---------------- | --------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `options.launch` | `*`       | —       | Your FULL launch/show options — the host's `MiniStartOptions.params` arrives there as `referrerInfo.extraData` / `extendData` (not `query`). A one-shot host copy still wins. |
+| `options.once`   | `boolean` | `true`  | Answer `null` when the resolved params match the last ones handed out, so calling it on every `onShow` never double-routes. Pass `false` to always resolve.                   |
 
-**Returns** `Promise<Object<string,string> | null>` — a flat map of lower-cased keys, slash-form and glued keys expanded. `null` when nothing arrived (a normal state, not an error).
+**Returns** `Promise<Object<string,string> | null>` — a flat map of lower-cased keys: one or two leading `?` stripped (the issued link is `…/miniapps/<appId>??a=b`), slash-form and glued keys expanded, a JSON string read as a map. `null` when nothing arrived (a normal state, not an error).
+
+> 🔁 `onShow` carries the SAME options again on every resume from background. The SDK handles this: `deeplink()` is **one-shot by default**, fingerprinting the resolved params and returning `null` for a repeat, so you can call it on every `onShow` without re-routing on an app switch. Pass `{once: false}` to always resolve, and `miniSDK.resetDeeplink()` to clear the memory on a fresh cold launch.
 
 > 🧭 **The params are data, never identity or price.** A `msisdn` in the link does not replace `user()`, a `montant` never prices an order. Mask them for logs with [`miniSDK.helpers.maskParams`](#-helpers--escape-hatch).
 
@@ -434,6 +437,16 @@ const { txnid } = await miniSDK.pay(order); // resolves a fake MP-DEV-… txnid
 ```
 
 Flip `identicalOnce` to rehearse the duplicate-payment flow, override any fixture to drive a screen. The real host is used the moment `simulate` is `false`.
+
+To rehearse a **deep link** — including the new launch-options door, which is not a `wx` call the fake host could stand in for — build sample options with `mockLaunchOptions` (from `sdk/mock/host.js`) and hand them to `deeplink`:
+
+```javascript
+import { mockLaunchOptions } from './sdk/mock/host.js';
+
+const launch = mockLaunchOptions({ page: 'detail', id: '42' }); // extraData door, the real one
+const params = await miniSDK.deeplink({ launch }); // { page: 'detail', id: '42' }
+// door: 'extraData' (default) · 'extendData' · 'query' · 'doubleQuestion' (the ?? path form)
+```
 
 ---
 
