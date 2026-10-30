@@ -22,8 +22,10 @@
     "format:check": "prettier --check \"**/*.{js,mjs,json,md}\"",
     "manifest": "node scripts/build-manifest.mjs",
     "manifest:check": "node scripts/build-manifest.mjs --check",
-    "release": "yarn test && yarn lint && yarn manifest",
-    "prepare": "husky"
+    "release": "yarn test && yarn lint && yarn build && yarn smoke:dist && yarn manifest",
+    "prepare": "husky",
+    "build": "node scripts/build-sdk.mjs",
+    "smoke:dist": "node scripts/smoke-dist.mjs"
   },
   "lint-staged": {
     "*.{js,mjs}": [
@@ -49,9 +51,11 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "esbuild": "0.28.2",
     "eslint": "^9",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
+    "javascript-obfuscator": "5.9.0",
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
     "vitest": "^4.1.11"

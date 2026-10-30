@@ -15,4 +15,4 @@ First cut, extracted from the mini-programs in production (ticketing, transit, e
 - `miniSDK.screen.protect(on)` — capture mask on both platforms.
 - `HostError` with stable codes: `UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `DENIED`, `REFUSED`, `DECLINED`, `INVALID`, `HOST_ERROR`.
 - `configure({simulate, fixtures, log, confirm, timeoutMs})` and `sdk/mock/host.js` for DevTools.
-- `npx @sonatel-os/maxit-mini-sdk update` — manifest-verified vendoring, no node_modules in the app.
+- `npx @sonatel-os/maxit-mini-sdk update` — manifest-verified vendoring, no node_modules in the app. What installs is a single **obfuscated** `sdk/index.js` (the whole graph bundled and mangled), so a partner cannot read or patch the SDK in place; the SHA-256 manifest lets a tampered copy be detected. The readable source stays in the repo under `sdk/`.

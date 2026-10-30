@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 // ============================================================================
-// Build sdk/manifest.json — the file list + SHA-256 the updater verifies —
-// and keep sdk/VERSION and sdk/index.js's VERSION in step with package.json.
+// Build dist/sdk/manifest.json — the file list + SHA-256 the updater verifies
+// — over the OBFUSCATED distributable (dist/sdk/), not the source. Run it after
+// scripts/build-sdk.mjs.
 //
 //   node scripts/build-manifest.mjs           # write
-//   node scripts/build-manifest.mjs --check   # fail if anything is stale (CI)
+//   node scripts/build-manifest.mjs --check   # fail if stale (CI)
+//
+// `--check` hashes the committed dist/sdk/ files and compares them to the
+// committed manifest. It never rebuilds, so it is deterministic regardless of
+// the obfuscator; CI proves dist matches the source separately, by rebuilding
+// and diffing (see .github/workflows/ci.yml).
 // ============================================================================
 
 import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
@@ -12,12 +18,12 @@ import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const SDK_DIR = join(ROOT, 'sdk');
-const MANIFEST = join(SDK_DIR, 'manifest.json');
+const DIST_DIR = join(ROOT, 'dist', 'sdk');
+const MANIFEST = join(DIST_DIR, 'manifest.json');
 const check = process.argv.includes('--check');
 
-/** Files that are part of the repo but never vendored. */
-const EXCLUDED = (path) => /\.test\.js$/.test(path) || path.endsWith('manifest.json');
+/** The manifest describes everything in dist/sdk except the manifest itself. */
+const EXCLUDED = (path) => path.endsWith('manifest.json');
 
 const walk = async (dir) => {
   const out = [];
@@ -36,8 +42,18 @@ const main = async () => {
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   const version = pkg.version;
 
+  let entries;
+  try {
+    entries = (await walk(DIST_DIR)).sort();
+  } catch (_e) {
+    console.error('✖ dist/sdk is missing — run `yarn build` first');
+    process.exit(1);
+  }
+
   const files = [];
-  for (const full of (await walk(SDK_DIR)).sort()) {
+  for (const full of entries) {
+    // Paths are repo-relative (dist/sdk/index.js): the updater fetches them
+    // raw at a tag and strips the dist/sdk/ prefix to place them in ./sdk.
     const path = relative(ROOT, full);
     if (EXCLUDED(path)) {
       continue;
@@ -50,16 +66,11 @@ const main = async () => {
     });
   }
 
-  const manifest = { version, generatedAt: new Date().toISOString(), files };
+  // No timestamp: the manifest must be byte-reproducible so CI can rebuild it
+  // and diff it against what was committed.
+  const manifest = { version, files };
   const next = `${JSON.stringify(manifest, null, 2)}\n`;
-
-  const versionFile = `${version}\n`;
-  const indexPath = join(SDK_DIR, 'index.js');
-  const index = await readFile(indexPath, 'utf8');
-  const indexNext = index.replace(
-    /export const VERSION = '[^']*';/,
-    `export const VERSION = '${version}';`
-  );
+  const distVersion = `${version}\n`;
 
   if (check) {
     const problems = [];
@@ -67,20 +78,21 @@ const main = async () => {
     try {
       current = JSON.parse(await readFile(MANIFEST, 'utf8'));
     } catch (_e) {
-      problems.push('sdk/manifest.json is missing');
+      problems.push('dist/sdk/manifest.json is missing — run `yarn build && yarn manifest`');
     }
     if (current) {
       const same =
         current.version === version && JSON.stringify(current.files) === JSON.stringify(files);
       if (!same) {
-        problems.push('sdk/manifest.json is stale — run `yarn manifest`');
+        problems.push('dist/sdk/manifest.json is stale — run `yarn manifest`');
       }
     }
-    if ((await readFile(join(SDK_DIR, 'VERSION'), 'utf8')) !== versionFile) {
-      problems.push('sdk/VERSION differs from package.json');
-    }
-    if (index !== indexNext) {
-      problems.push('sdk/index.js VERSION differs from package.json');
+    try {
+      if ((await readFile(join(DIST_DIR, 'VERSION'), 'utf8')) !== distVersion) {
+        problems.push('dist/sdk/VERSION differs from package.json');
+      }
+    } catch (_e) {
+      problems.push('dist/sdk/VERSION is missing');
     }
     if (problems.length) {
       problems.forEach((p) => console.error(`✖ ${p}`));
@@ -91,11 +103,7 @@ const main = async () => {
   }
 
   await writeFile(MANIFEST, next);
-  await writeFile(join(SDK_DIR, 'VERSION'), versionFile);
-  if (index !== indexNext) {
-    await writeFile(indexPath, indexNext);
-  }
-  console.log(`✔ wrote sdk/manifest.json (${files.length} files, ${version})`);
+  console.log(`✔ wrote dist/sdk/manifest.json (${files.length} files, ${version})`);
 };
 
 main().catch((err) => {

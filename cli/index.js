@@ -54,6 +54,21 @@ const fetchAs = async (url, as) => {
 };
 
 /**
+ * Fetch the SDK manifest at a ref. The obfuscated build lives at
+ * `dist/sdk/manifest.json`; older tags carried a readable `sdk/manifest.json`,
+ * so fall back to that.
+ * @param {string} ref
+ * @returns {Promise<Object>}
+ */
+const fetchManifest = async (ref) => {
+  try {
+    return assertManifest(await fetchAs(rawUrl(ref, 'dist/sdk/manifest.json'), 'json'));
+  } catch (_e) {
+    return assertManifest(await fetchAs(rawUrl(ref, 'sdk/manifest.json'), 'json'));
+  }
+};
+
+/**
  * Resolve the git ref to install: the latest release's tag, or the one asked.
  * @param {string} wanted - 'latest' | 'main' | 'vX.Y.Z'
  * @returns {Promise<string>}
@@ -117,7 +132,7 @@ const download = async (ref, manifest, staging) => {
   for (const entry of manifest.files) {
     const content = await fetchAs(rawUrl(ref, entry.path), 'buffer');
     verifyFile(entry, content);
-    const target = join(staging, entry.path.replace(/^sdk\//, ''));
+    const target = join(staging, entry.path.replace(/^(?:dist\/)?sdk\//, ''));
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, content);
     console.log(`  ✓ ${entry.path}`);
@@ -144,7 +159,7 @@ const update = async ({ version, dir, force }) => {
   const ref = await resolveRef(tagOf(version));
   console.log(`maxit-mini-sdk · ref ${ref} → ${dir}/`);
 
-  const manifest = assertManifest(await fetchAs(rawUrl(ref, 'sdk/manifest.json'), 'json'));
+  const manifest = await fetchManifest(ref);
   const current = await installedVersion(target);
   if (current && !force && compareVersions(current, manifest.version) >= 0 && ref !== 'main') {
     console.log(`already at ${current} (manifest ${manifest.version}). Use --force to rewrite.`);
@@ -181,7 +196,7 @@ const update = async ({ version, dir, force }) => {
 const check = async ({ dir }) => {
   const current = await installedVersion(resolve(process.cwd(), dir));
   const ref = await resolveRef('latest');
-  const manifest = assertManifest(await fetchAs(rawUrl(ref, 'sdk/manifest.json'), 'json'));
+  const manifest = await fetchManifest(ref);
   if (!current) {
     console.log(`not installed in ${dir}/ — latest is ${manifest.version}`);
     process.exit(2);

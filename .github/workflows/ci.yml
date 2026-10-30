@@ -18,6 +18,17 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn lint
       - run: yarn test
+      - name: Rebuild the obfuscated dist and prove it matches the committed source
+        # The build is deterministic (fixed seed, pinned esbuild + obfuscator),
+        # so a clean rebuild must reproduce exactly what was committed. A diff
+        # here means someone changed sdk/ without running `yarn build`.
+        run: |
+          yarn build
+          yarn manifest
+          git diff --exit-code -- dist/ sdk/VERSION sdk/index.js \
+            || (echo "::error::dist/ is stale — run 'yarn build && yarn manifest' and commit" && exit 1)
+      - name: Run the obfuscated bundle (what partners install)
+        run: yarn smoke:dist
       - run: yarn manifest:check
       - name: Updater smoke test (installs this very commit into a temp folder)
         if: github.event_name == 'push'
@@ -25,6 +36,9 @@ jobs:
           mkdir -p /tmp/mp && cd /tmp/mp
           node $GITHUB_WORKSPACE/cli/index.js update main --dir sdk
           test -f sdk/index.js && cat sdk/VERSION
+          # The installed file must be the obfuscated bundle, not readable source.
+          grep -q "obfuscated bundle" sdk/index.js \
+            || (echo "::error::installed sdk/index.js is not the obfuscated build" && exit 1)
 
   release:
     needs: verify
@@ -38,4 +52,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: sdk/manifest.json
+          files: dist/sdk/manifest.json
