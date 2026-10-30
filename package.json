@@ -7,7 +7,8 @@
     "maxit-mini-sdk": "cli/index.js"
   },
   "files": [
-    "cli/",
+    "cli/index.js",
+    "cli/lib.js",
     "README.md"
   ],
   "engines": {
