@@ -141,6 +141,28 @@ describe('deeplink — one-shot across the onShow repeat', () => {
     expect(await deeplink({ launch })).toBeNull(); // the resume: same options, already handled
   });
 
+  it('the SAME link tapped again is a fresh tap when the host hands it over again (0.1.2)', async () => {
+    // The host's getDeeplinkParams is one-shot on its side: an answer = a new tap.
+    const launch = { referrerInfo: { extraData: '??page=x' } };
+    globalThis.wx = {
+      invokeNativePlugin: (call) =>
+        call.success({ result: 'success', status_code: 200, data: { params: { page: 'x' } } }),
+    };
+    expect(await deeplink({ launch })).toEqual({ page: 'x' });
+    // The onShow that follows: same options, the host has nothing left → a resume.
+    globalThis.wx = {
+      invokeNativePlugin: (call) =>
+        call.success({ result: 'success', status_code: 200, data: { params: {} } }),
+    };
+    expect(await deeplink({ launch })).toBeNull();
+    // A second tap of the same link: the host hands the same words over again → routes.
+    globalThis.wx = {
+      invokeNativePlugin: (call) =>
+        call.success({ result: 'success', status_code: 200, data: { params: { page: 'x' } } }),
+    };
+    expect(await deeplink({ launch })).toEqual({ page: 'x' });
+  });
+
   it('still resolves a genuinely new link after a repeat', async () => {
     const a = mockLaunchOptions({ page: 'a' });
     const b = mockLaunchOptions({ page: 'b' });

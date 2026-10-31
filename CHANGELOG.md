@@ -2,6 +2,11 @@
 
 All notable changes to the vendored `sdk/` folder. The updater prints the sections between your installed version and the one it installs.
 
+## [0.1.2] - 2026-10-30
+
+- **Deep link: a repeated tap of the same link routes again.** The host's `getDeeplinkParams` is one-shot on its side, so anything it answers is a fresh tap; `deeplink({ once })` now de-duplicates only the launch options that TCMPP repeats on a resume. Before, tapping the same link twice while the mini-program was alive was swallowed as a resume.
+- `miniSDK.pay`: the correlation key is named **`idService` by default**. The host's request model (samea-mobile `MiniAppPayReq.fromMap`) reads `idService` ONLY and forwards it as the Orange Money debit's `serviceId` — the exact-match key a verification oracle needs; a top-level `serviceId` was dropped by the host, so an app trusting the old default lost the key on every debit. A bare `orderId`, or both spellings with one value, now go out as `idService`; an explicit `serviceId` alone is kept as given. HOST_CONTRACT and README updated.
+
 ## [0.1.1] - 2026-10-30
 
 - `miniSDK.deeplink({launch})` reads the host's NEW door: since 2026-10-30 the host starts the mini-program with TCMPP `MiniStartOptions.params`, which the runtime hands to `onLaunch`/`onShow` as `options.referrerInfo.extraData` / `options.extendData` — pass the whole options object. Reads `path?…` → `query` → `extraData` → `extendData`, the later winning.

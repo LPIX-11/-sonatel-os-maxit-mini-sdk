@@ -88,10 +88,18 @@ describe('pay — the host payload', () => {
       orderId: 'ORD-1',
       orderDescription: 'Pass journée',
       message: 'Pass journée',
-      serviceId: 'ORD-1',
+      idService: 'ORD-1',
       reference: 'ORD-1',
       payload: { nom_marchand: 'Ma Boutique', code_marchand: '467652', reference: 'ORD-1' },
     });
+  });
+
+  it('names the correlation key idService by default: the only spelling the host reads', () => {
+    // samea-mobile MiniAppPayReq.fromMap reads `idService` and forwards it as
+    // the debit's serviceId; a top-level `serviceId` is dropped on the floor.
+    const body = buildHostPayload({ ...PAYLOAD, orderId: 'TEV-9' });
+    expect(body.idService).toBe('TEV-9');
+    expect(body).not.toHaveProperty('serviceId');
   });
 
   it('never sends serviceId and idService together', () => {
@@ -104,8 +112,8 @@ describe('pay — the host payload', () => {
     expect(b).not.toHaveProperty('serviceId');
 
     const same = buildHostPayload({ ...PAYLOAD, serviceId: 'S', idService: 'S' });
-    expect(same.serviceId).toBe('S');
-    expect(same).not.toHaveProperty('idService');
+    expect(same.idService).toBe('S');
+    expect(same).not.toHaveProperty('serviceId');
   });
 
   it('lets the app set the reference, the customer, the currency, and pass extras through', () => {

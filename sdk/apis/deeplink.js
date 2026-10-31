@@ -289,13 +289,18 @@ export const deeplink = async ({ launch, once = true } = {}) => {
       log('debug', API, 'no host params', { code: err && err.code });
     }
   }
-  const merged = { ...normaliseParams(launch), ...normaliseParams(fromHost) };
+  const hostParams = normaliseParams(fromHost);
+  const merged = { ...normaliseParams(launch), ...hostParams };
   if (!Object.keys(merged).length) {
     return null;
   }
   if (once) {
     const fp = fingerprint(merged);
-    if (fp === lastConsumed) {
+    // The host's door is one-shot on ITS side: it hands the params over once
+    // per tap and clears them. So anything it answered is a FRESH tap, even
+    // when the words are the same as last time — only the launch options
+    // repeat on a resume, and only they are de-duplicated.
+    if (fp === lastConsumed && !Object.keys(hostParams).length) {
       log('debug', API, 'deep link already handled; skipping the onShow repeat');
       return null;
     }

@@ -238,20 +238,20 @@ const { txnid, confirmedIdentical, sent, raw } = await miniSDK.pay(
 
 **The order**
 
-| Field            | Type     | Required | Note                                                                                      |
-| ---------------- | -------- | -------- | ----------------------------------------------------------------------------------------- |
-| `amount`         | `number` | ✅       | XOF, > 0. A 0 F item must not go through the sheet.                                       |
-| `receiver`       | `number` | ✅       | The **merchant code**, never the msisdn, never 0.                                         |
-| `receiverName`   | `string` | ✅       | Merchant display name.                                                                    |
-| `description`    | `string` | ✅       | Shown on the sheet; sent as both `orderDescription` and `message`.                        |
-| `orderId`        | `string` | ✅\*     | Your order id. \*At least one reference is required.                                      |
-| `serviceId`      | `string` | —        | The correlation key the host records on the debit. Defaults to `orderId`.                 |
-| `idService`      | `string` | —        | The **alternative** key — **exclusive**: pass `serviceId` **or** `idService`, never both. |
-| `reference`      | `string` | —        | Copied into the debit's metadata. Defaults to `orderId`.                                  |
-| `customerMsisdn` | `string` | —        | Optional payer number.                                                                    |
-| `currency`       | `string` | —        | Defaults to `XOF`.                                                                        |
-| `payload`        | `object` | —        | Extra keys merged into the host's `{ nom_marchand, code_marchand, reference }` block.     |
-| `extra`          | `object` | —        | Legacy top-level fields some backends still read (`fees`, `appInfo`, …).                  |
+| Field            | Type     | Required | Note                                                                                                                 |
+| ---------------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `amount`         | `number` | ✅       | XOF, > 0. A 0 F item must not go through the sheet.                                                                  |
+| `receiver`       | `number` | ✅       | The **merchant code**, never the msisdn, never 0.                                                                    |
+| `receiverName`   | `string` | ✅       | Merchant display name.                                                                                               |
+| `description`    | `string` | ✅       | Shown on the sheet; sent as both `orderDescription` and `message`.                                                   |
+| `orderId`        | `string` | ✅\*     | Your order id. \*At least one reference is required.                                                                 |
+| `idService`      | `string` | —        | The correlation key the host records on the debit, **under the name the host reads**. Defaults to `orderId`.         |
+| `serviceId`      | `string` | —        | The other spelling, for a host build that reads it — **exclusive**: pass `idService` **or** `serviceId`, never both. |
+| `reference`      | `string` | —        | Copied into the debit's metadata. Defaults to `orderId`.                                                             |
+| `customerMsisdn` | `string` | —        | Optional payer number.                                                                                               |
+| `currency`       | `string` | —        | Defaults to `XOF`.                                                                                                   |
+| `payload`        | `object` | —        | Extra keys merged into the host's `{ nom_marchand, code_marchand, reference }` block.                                |
+| `extra`          | `object` | —        | Legacy top-level fields some backends still read (`fees`, `appInfo`, …).                                             |
 
 **Handlers**
 

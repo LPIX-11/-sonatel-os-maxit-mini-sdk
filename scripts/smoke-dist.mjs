@@ -68,7 +68,7 @@ const main = async () => {
     description: 'Pass journée',
     orderId: 'ORD-1',
   });
-  for (const key of ['amount', 'currency', 'receiver', 'serviceId', 'reference', 'payload']) {
+  for (const key of ['amount', 'currency', 'receiver', 'idService', 'reference', 'payload']) {
     assert(key in sent, `host payload lost key ${key}`);
   }
   for (const key of ['nom_marchand', 'code_marchand', 'reference']) {

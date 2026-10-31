@@ -111,8 +111,13 @@ export const readIdenticalPrompt = (error) => {
 const text = (value) => (value === undefined || value === null ? '' : String(value).trim());
 
 /**
- * The ONE correlation key the host accepts: `serviceId` or `idService`,
- * never both. The order id stands in when neither was given.
+ * The ONE correlation key the host accepts: `idService` or `serviceId`,
+ * never both. **`idService` is the name the host actually reads** — its
+ * request model (samea-mobile `MiniAppPayReq.fromMap`) copies `idService`
+ * into the Orange Money debit's `serviceId` and ignores a top-level
+ * `serviceId` — so a bare `orderId`, and a pair given with one value,
+ * resolve to `idService`. An explicit `serviceId` alone is kept under that
+ * name for a host build that reads it.
  * @param {Object} order
  * @returns {{key: 'serviceId'|'idService', value: string}|null}
  * @throws {HostError} INVALID when both are given with different values
@@ -126,11 +131,11 @@ export const correlationOf = (order) => {
       hostMessage: 'serviceId et idService sont exclusifs : un seul des deux',
     });
   }
-  if (idService && !serviceId) {
-    return { key: 'idService', value: idService };
+  if (serviceId && !idService) {
+    return { key: 'serviceId', value: serviceId };
   }
-  const value = serviceId || text(order.orderId);
-  return value ? { key: 'serviceId', value } : null;
+  const value = idService || text(order.orderId);
+  return value ? { key: 'idService', value } : null;
 };
 
 /**
@@ -171,7 +176,8 @@ const validate = (order) => {
  *
  * Shape (HOST_CONTRACT.md § merchantPay, as the fleet sends it in 2026-10):
  *   amount · currency · receiver · receiverName · orderId · orderDescription ·
- *   message · ONE of serviceId / idService · reference · customerMsisdn ·
+ *   message · ONE of idService / serviceId (idService by default: the name the
+ *   host reads) · reference · customerMsisdn ·
  *   payload: { nom_marchand, code_marchand, reference } — the block the host
  *   reads the merchant and the reference from (a replace, not a merge, on the
  *   native side: send it whole) · any `extra` the app wants to pass through.
@@ -293,10 +299,11 @@ const simulatePay = async (body) => {
  * @param {string} order.description - what the customer reads on the sheet
  * @param {string} [order.orderId] - your order id; the correlation key and the
  *   reference default to it
- * @param {string} [order.serviceId] - the correlation key carried into the
- *   debit (exact-match key for a later verification); defaults to orderId
- * @param {string} [order.idService] - the same key under the host's other
- *   name — give ONE of serviceId / idService, never both
+ * @param {string} [order.idService] - the correlation key carried into the
+ *   debit (the exact-match key for a later verification), under the name the
+ *   host reads; defaults to orderId
+ * @param {string} [order.serviceId] - the same key under the other spelling,
+ *   for a host build that reads it — give ONE of idService / serviceId, never both
  * @param {string} [order.reference] - copied by the host into the debit's
  *   metadata; defaults to orderId
  * @param {string} [order.customerMsisdn]
