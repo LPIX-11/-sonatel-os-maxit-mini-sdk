@@ -46,7 +46,7 @@ import { scan, API as SCAN_API } from './apis/scan.js';
 import { normaliseMsisdn, isSenegalMobile, identityOf } from './helpers/msisdn.js';
 
 /** The SDK version, kept in step with sdk/VERSION by the release script. */
-export const VERSION = '0.1.2';
+export const VERSION = '0.1.3';
 
 /** The host plugins this SDK speaks to, by SDK method. */
 export const HOST_APIS = Object.freeze({

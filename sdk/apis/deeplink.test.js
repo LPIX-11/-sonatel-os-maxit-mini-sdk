@@ -163,6 +163,43 @@ describe('deeplink — one-shot across the onShow repeat', () => {
     expect(await deeplink({ launch })).toEqual({ page: 'x' });
   });
 
+  it('the host’s late copy of a link already read off the launch options is NOT a second tap (0.1.3)', async () => {
+    // Cold start: the options door carries the tap, the host bridge is not
+    // ready yet — its first call fails and the host KEEPS its copy.
+    const launch = { referrerInfo: { extraData: '??page=x&qty=2' } };
+    globalThis.wx = {
+      invokeNativePlugin: (call) => call.fail({ errMsg: 'plugin not ready' }),
+    };
+    expect(await deeplink({ launch })).toEqual({ page: 'x', qty: '2' });
+    // A resume (return from a payment overlay): the same options AND the host
+    // now answers the surviving copy of the SAME tap → swallowed once.
+    globalThis.wx = {
+      invokeNativePlugin: (call) =>
+        call.success({
+          result: 'success',
+          status_code: 200,
+          data: { params: { page: 'x', qty: '2' } },
+        }),
+    };
+    expect(await deeplink({ launch })).toBeNull();
+    // The host cleared it; a plain resume stays a resume.
+    globalThis.wx = {
+      invokeNativePlugin: (call) =>
+        call.success({ result: 'success', status_code: 200, data: { params: {} } }),
+    };
+    expect(await deeplink({ launch })).toBeNull();
+    // A genuine re-tap of the same link: the host hands the words over AGAIN → routes.
+    globalThis.wx = {
+      invokeNativePlugin: (call) =>
+        call.success({
+          result: 'success',
+          status_code: 200,
+          data: { params: { page: 'x', qty: '2' } },
+        }),
+    };
+    expect(await deeplink({ launch })).toEqual({ page: 'x', qty: '2' });
+  });
+
   it('still resolves a genuinely new link after a repeat', async () => {
     const a = mockLaunchOptions({ page: 'a' });
     const b = mockLaunchOptions({ page: 'b' });

@@ -2,6 +2,10 @@
 
 All notable changes to the vendored `sdk/` folder. The updater prints the sections between your installed version and the one it installs.
 
+## [0.1.3] - 2026-11-02
+
+- **Deep link: the host's late copy of a link is not a second tap.** On a cold start the launch options deliver the tap while the host bridge is not ready yet, so the first `getDeeplinkParams` call fails and the host KEEPS its copy; the next call that reaches it (a resume, the return from a payment overlay) handed the same link over again and 0.1.2 — « anything the host answers is a fresh tap » — routed it a second time (the order page mounted twice). The SDK now swallows the host's first delivery of a set the launch options already handed out, once; the same words from the host a second time are a genuine re-tap and still route.
+
 ## [0.1.2] - 2026-10-30
 
 - **Deep link: a repeated tap of the same link routes again.** The host's `getDeeplinkParams` is one-shot on its side, so anything it answers is a fresh tap; `deeplink({ once })` now de-duplicates only the launch options that TCMPP repeats on a resume. Before, tapping the same link twice while the mini-program was alive was swallowed as a resume.

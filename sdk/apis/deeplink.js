@@ -255,9 +255,23 @@ const fingerprint = (params) =>
  */
 let lastConsumed = null;
 
+/**
+ * The last param set the HOST's door handed out. The host stores a tap's
+ * params and clears them on the first successful `getDeeplinkParams` — but
+ * when that first call fails (the bridge is not ready on a cold start), the
+ * copy survives while the app has already read the SAME tap off the launch
+ * options. The next call that reaches the host (a resume, the return from a
+ * payment overlay) then gets the stale twin of a link already routed. So a
+ * host answer equal to the last consumed set is swallowed ONCE when the host
+ * never delivered it before; the same words from the host a second time are
+ * a genuine re-tap and route.
+ */
+let lastHostConsumed = null;
+
 /** Forget the last-consumed deep link (a fresh cold launch, or a test). */
 export const resetDeeplink = () => {
   lastConsumed = null;
+  lastHostConsumed = null;
 };
 
 /**
@@ -296,15 +310,27 @@ export const deeplink = async ({ launch, once = true } = {}) => {
   }
   if (once) {
     const fp = fingerprint(merged);
+    const fromHostDoor = Object.keys(hostParams).length > 0;
     // The host's door is one-shot on ITS side: it hands the params over once
     // per tap and clears them. So anything it answered is a FRESH tap, even
     // when the words are the same as last time — only the launch options
-    // repeat on a resume, and only they are de-duplicated.
-    if (fp === lastConsumed && !Object.keys(hostParams).length) {
+    // repeat on a resume, and only they are de-duplicated…
+    if (fp === lastConsumed && !fromHostDoor) {
       log('debug', API, 'deep link already handled; skipping the onShow repeat');
       return null;
     }
+    // …except the host's copy of a tap the launch options already delivered
+    // (its first call failed on a cold start, the copy survived): the first
+    // such answer is the same tap, not a new one. See `lastHostConsumed`.
+    if (fp === lastConsumed && fromHostDoor && lastHostConsumed !== fp) {
+      lastHostConsumed = fp;
+      log('debug', API, 'host copy of the link already routed from the launch options; skipping');
+      return null;
+    }
     lastConsumed = fp;
+    if (fromHostDoor) {
+      lastHostConsumed = fp;
+    }
   }
   return merged;
 };
