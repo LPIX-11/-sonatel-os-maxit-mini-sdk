@@ -13,6 +13,7 @@ import {
   txnidOf,
   CONTINUE_ACTION,
   resetPaySimulation,
+  withoutEmpty,
 } from './pay.js';
 import { configure, resetConfig } from '../core/config.js';
 import { HostError } from '../core/errors.js';
@@ -50,6 +51,38 @@ beforeEach(() => {
   configure({ fixtures: { latencyMs: 0 } });
 });
 
+describe('pay — the wait', () => {
+  it('waits for the host longer than the generic 30-s timeout: a PIN takes a while', async () => {
+    vi.useFakeTimers();
+    try {
+      wx.invokeNativePlugin = vi.fn((call) => {
+        setTimeout(() => call.success(ok({ txnid: 'MP-LATE' })), 90 * 1000);
+      });
+      const p = pay(PAYLOAD);
+      // Nothing happens at 30 s…
+      await vi.advanceTimersByTimeAsync(31 * 1000);
+      // …and the host's answer at 90 s is the result, not a late reply dropped.
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      await expect(p).resolves.toMatchObject({ txnid: 'MP-LATE' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still gives up on a host that never answers, as uncertain', async () => {
+    vi.useFakeTimers();
+    try {
+      wx.invokeNativePlugin = vi.fn(() => {});
+      const p = pay(PAYLOAD);
+      const settled = expect(p).rejects.toMatchObject({ code: 'TIMEOUT', uncertain: true });
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 10);
+      await settled;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('pay — validation', () => {
   it('refuses a bad payload before anything leaves the app', async () => {
     const h = host(ok({ txnid: 'X' }));
@@ -66,7 +99,7 @@ describe('pay — validation', () => {
     expect(h).not.toHaveBeenCalled();
   });
 
-  it('refuses an order without any reference, and serviceId + idService together', async () => {
+  it('refuses an order without any reference, and serviceId + idService with different values', async () => {
     const h = host(ok({ txnid: 'X' }));
     await expect(pay({ ...PAYLOAD, orderId: undefined })).rejects.toMatchObject({
       code: 'INVALID',
@@ -79,7 +112,7 @@ describe('pay — validation', () => {
 });
 
 describe('pay — the host payload', () => {
-  it('builds the host request from a plain order: ONE correlation key, the nested payload block', () => {
+  it('builds the host request from a plain order: the key under both spellings, the nested payload block', () => {
     expect(buildHostPayload(PAYLOAD)).toEqual({
       amount: 2000,
       currency: 'XOF',
@@ -89,31 +122,33 @@ describe('pay — the host payload', () => {
       orderDescription: 'Pass journée',
       message: 'Pass journée',
       idService: 'ORD-1',
+      serviceId: 'ORD-1',
       reference: 'ORD-1',
       payload: { nom_marchand: 'Ma Boutique', code_marchand: '467652', reference: 'ORD-1' },
     });
   });
 
-  it('names the correlation key idService by default: the only spelling the host reads', () => {
-    // samea-mobile MiniAppPayReq.fromMap reads `idService` and forwards it as
-    // the debit's serviceId; a top-level `serviceId` is dropped on the floor.
+  it('sends the correlation key under BOTH spellings, from a bare orderId (0.1.5)', () => {
+    // The host source reads `idService` (samea-mobile MiniAppPayReq.fromMap);
+    // the build in the field may read the other name; BRT, whose key is
+    // proven in the Orange Money ledger, sends both. So does the SDK now.
     const body = buildHostPayload({ ...PAYLOAD, orderId: 'TEV-9' });
     expect(body.idService).toBe('TEV-9');
-    expect(body).not.toHaveProperty('serviceId');
+    expect(body.serviceId).toBe('TEV-9');
   });
 
-  it('never sends serviceId and idService together', () => {
+  it('one value, whichever spelling the app used — both always leave', () => {
     const a = buildHostPayload({ ...PAYLOAD, serviceId: 'SVC-1' });
     expect(a.serviceId).toBe('SVC-1');
-    expect(a).not.toHaveProperty('idService');
+    expect(a.idService).toBe('SVC-1');
 
     const b = buildHostPayload({ ...PAYLOAD, idService: 'maxStore.app' });
     expect(b.idService).toBe('maxStore.app');
-    expect(b).not.toHaveProperty('serviceId');
+    expect(b.serviceId).toBe('maxStore.app');
 
     const same = buildHostPayload({ ...PAYLOAD, serviceId: 'S', idService: 'S' });
     expect(same.idService).toBe('S');
-    expect(same).not.toHaveProperty('serviceId');
+    expect(same.serviceId).toBe('S');
   });
 
   it('lets the app set the reference, the customer, the currency, and pass extras through', () => {
@@ -270,5 +305,58 @@ describe('readIdenticalPrompt / txnidOf', () => {
       )
     ).toBeNull();
     expect(readIdenticalPrompt(null)).toBeNull();
+  });
+});
+
+describe('pay — nothing null ever reaches the host (2026-11-03)', () => {
+  const flat = (o, prefix = '') =>
+    Object.entries(o).flatMap(([k, v]) =>
+      v && typeof v === 'object' && !Array.isArray(v)
+        ? flat(v, `${prefix}${k}.`)
+        : [[`${prefix}${k}`, v]]
+    );
+
+  it('builds a body with no null, undefined or empty value, top level and inside payload', () => {
+    const body = buildHostPayload({
+      ...PAYLOAD,
+      reference: null,
+      idService: undefined,
+      serviceId: null,
+      customerMsisdn: '',
+      receiverName: 'Ma Boutique',
+      payload: { note: null, lieu: 'Dakar' },
+      extra: { canal: undefined, via: 'lien' },
+    });
+    for (const [key, value] of flat(body)) {
+      expect(value, key).not.toBeNull();
+      expect(value, key).not.toBeUndefined();
+      expect(value === '' ? key : '', key).toBe('');
+    }
+    expect(body.idService).toBe('ORD-1');
+    expect(body.serviceId).toBe('ORD-1');
+    expect(body.reference).toBe('ORD-1');
+    expect(body.payload).toEqual({
+      nom_marchand: 'Ma Boutique',
+      code_marchand: '467652',
+      reference: 'ORD-1',
+      lieu: 'Dakar',
+    });
+    expect(body.via).toBe('lien');
+    expect(body).not.toHaveProperty('canal');
+  });
+
+  it('reads the strings "null" and "undefined" as no value, and refuses an order whose only key is one of them', async () => {
+    const body = buildHostPayload({ ...PAYLOAD, reference: 'null', idService: 'undefined' });
+    expect(body.reference).toBe('ORD-1');
+    expect(body.idService).toBe('ORD-1');
+    const h = host(ok({ txnid: 'X' }));
+    await expect(pay({ ...PAYLOAD, orderId: 'null' })).rejects.toMatchObject({ code: 'INVALID' });
+    expect(h).not.toHaveBeenCalled();
+  });
+
+  it('withoutEmpty drops empty nested blocks and keeps zero and false', () => {
+    expect(withoutEmpty({ a: null, b: '', c: { d: undefined }, e: 0, f: false, g: ' x ' })).toEqual(
+      { e: 0, f: false, g: ' x ' }
+    );
   });
 });

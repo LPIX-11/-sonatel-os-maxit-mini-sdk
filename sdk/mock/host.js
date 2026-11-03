@@ -33,9 +33,8 @@ export const createMockHost = (fixtures = {}, { latencyMs = 120, identicalOnce =
     userInfos: () => ok({ user: { ...fx.user } }),
     login: () => ok({ code: fx.loginCode }),
     merchantPay: (data) => {
-      if (data.serviceId !== undefined && data.idService !== undefined) {
-        return ko('serviceId and idService are exclusive');
-      }
+      // The real host reads `idService` (and older builds may read `serviceId`);
+      // it refuses neither spelling nor the pair.
       if (!data.payload || typeof data.payload !== 'object') {
         return ko('payload block missing');
       }

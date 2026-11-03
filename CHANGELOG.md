@@ -2,6 +2,17 @@
 
 All notable changes to the vendored `sdk/` folder. The updater prints the sections between your installed version and the one it installs.
 
+## [0.1.5] - 2026-11-03
+
+- **`miniSDK.pay` sends the correlation key under BOTH spellings, `idService` and `serviceId`, one value.** 0.1.0 → 0.1.4 sent one key only (`idService` by default) on the belief that the host refused the pair; the host's code refuses neither, its source on disk reads `idService`, and the build in customers' hands may read the other name — BRT, the one mini-program whose key is proven in the Orange Money ledger, has always sent both. An order that gives the two spellings with different values is still `INVALID`. The mock host no longer refuses the pair either.
+- **Nothing null leaves for the host.** `buildHostPayload` strips every null, undefined and empty value, at the top level and inside `payload` (the old body wrote `payload.reference: null` when it had no reference), and reads the strings `"null"` / `"undefined"` as no value, so a template literal of a missing id can never become the debit's key. An order whose only key is such a string is `INVALID` before anything leaves.
+- HOST_CONTRACT: open question 6 — what the host does with the key and the reference on its side (`payload.reference` only on the retry branch, the analytics event without either, field casing vs the backend schema).
+
+## [0.1.4] - 2026-11-03
+
+- **`miniSDK.pay` waits ten minutes for the host, not thirty seconds.** The generic call timeout cut a payment while the customer was still on the host's PIN sheet: the SDK rejected `TIMEOUT` (uncertain) and the host's real answer, minutes later, was dropped as a late reply — the mini-program came back to « on vérifie » instead of the ticket. `PAY_TIMEOUT_MS` = 10 min; a host that never answers is still `TIMEOUT` / `uncertain`.
+- HOST_CONTRACT: what the host does while a payment runs, read in its source — the mini-program's own process can be killed in the background and the answer then has no receiver (a cold start with nothing); open question 5 asks the host for a durable result.
+
 ## [0.1.3] - 2026-11-02
 
 - **Deep link: the host's late copy of a link is not a second tap.** On a cold start the launch options deliver the tap while the host bridge is not ready yet, so the first `getDeeplinkParams` call fails and the host KEEPS its copy; the next call that reaches it (a resume, the return from a payment overlay) handed the same link over again and 0.1.2 — « anything the host answers is a fresh tap » — routed it a second time (the order page mounted twice). The SDK now swallows the host's first delivery of a set the launch options already handed out, once; the same words from the host a second time are a genuine re-tap and still route.
