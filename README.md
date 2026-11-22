@@ -4,14 +4,14 @@
 
 <p align="center">
   <strong>The Max It host, as one object.</strong><br/>
-  Everything a mini-program does through <code>wx.invokeNativePlugin</code> — identity, login, Orange Money payment, contacts, deep links, screen protection — with plain results, typed errors, and every host quirk handled once instead of in every app.
+  Everything a mini-program does through <code>wx.invokeNativePlugin</code> — identity, login, Orange Money payment and transfer, contacts, deep links, screen protection — with plain results, typed errors, and every host quirk handled once instead of in every app.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/install-npx%20update-FF7900?style=for-the-badge&logo=npm&logoColor=white" alt="Install: npx update" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-3C873A?style=for-the-badge&logo=node.js&logoColor=white" alt="Node >= 18" />
   <img src="https://img.shields.io/badge/module-ESM-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="ESM" />
-  <img src="https://img.shields.io/badge/tests-77%20vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="77 tests · vitest" />
+  <img src="https://img.shields.io/badge/tests-112%20vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="112 tests · vitest" />
   <img src="https://img.shields.io/badge/lint-eslint%209-4B32C3?style=for-the-badge&logo=eslint&logoColor=white" alt="ESLint 9" />
   <img src="https://img.shields.io/badge/ships-obfuscated-black?style=for-the-badge&logo=gnuprivacyguard&logoColor=white" alt="Ships obfuscated" />
 </p>
@@ -88,8 +88,8 @@ App({
                             │
       ┌─────────────────────▼──────────────────────┐
       │                  miniSDK                    │
-      │   user · login · pay · contacts · deeplink  │   ← clean results
-      │          · scan · screen · supports         │   ← typed HostError
+      │   user · login · pay · transfer · contacts  │   ← clean results
+      │    · deeplink · scan · screen · supports    │   ← typed HostError
       └──────────┬───────────────────────┬──────────┘
                  │                        │
         wx.invokeNativePlugin      wx.scanCode / setVisualEffectOnCapture
@@ -97,7 +97,8 @@ App({
       ┌──────────▼──────────────────────────────────┐
       │              Max It host (Sonatel)           │
       │  userInfos · login · merchantPay · contactList│
-      │        · block_screen · getDeeplinkParams     │
+      │  · transfertMoney · block_screen              │
+      │  · getDeeplinkParams                          │
       └───────────────────────────────────────────────┘
 ```
 
@@ -434,17 +435,18 @@ try {
 
 Pure helpers the SDK uses, exposed because apps reuse them. Under `miniSDK.helpers`:
 
-| Helper                       | Signature                                   | What it does                                                 |
-| ---------------------------- | ------------------------------------------- | ------------------------------------------------------------ |
-| `normaliseMsisdn(raw)`       | `(string) => string`                        | Strip `+221`/`221`/`00221`, spaces, dots → bare digits.      |
-| `isSenegalMobile(digits)`    | `(string) => boolean`                       | Is it a nine-digit Senegalese mobile (`7XXXXXXXX`)?          |
-| `identityOf(user)`           | `(object) => { msisdn, fullName, … }`       | A raw host user record → a clean identity.                   |
-| `normaliseContacts(res)`     | `(*) => Contact[]`                          | Any `contactList` shape → one list.                          |
-| `normaliseParams(input)`     | `(*) => Object<string,string>`              | A query string / params map / launch options → one flat map. |
-| `maskParams(params)`         | `(object) => object`                        | Mask phone-number values for logs and toasts.                |
-| `buildHostPayload(order)`    | `(order) => object`                         | The exact `merchantPay` request the SDK would send.          |
-| `readIdenticalPrompt(error)` | `(HostError) => { txnid, message } \| null` | Is this the duplicate-payment prompt, and its txnid?         |
-| `CONTINUE_ACTION`            | `'1'`                                       | The string the host needs to proceed past a duplicate.       |
+| Helper                           | Signature                                   | What it does                                                 |
+| -------------------------------- | ------------------------------------------- | ------------------------------------------------------------ |
+| `normaliseMsisdn(raw)`           | `(string) => string`                        | Strip `+221`/`221`/`00221`, spaces, dots → bare digits.      |
+| `isSenegalMobile(digits)`        | `(string) => boolean`                       | Is it a nine-digit Senegalese mobile (`7XXXXXXXX`)?          |
+| `identityOf(user)`               | `(object) => { msisdn, fullName, … }`       | A raw host user record → a clean identity.                   |
+| `normaliseContacts(res)`         | `(*) => Contact[]`                          | Any `contactList` shape → one list.                          |
+| `normaliseParams(input)`         | `(*) => Object<string,string>`              | A query string / params map / launch options → one flat map. |
+| `maskParams(params)`             | `(object) => object`                        | Mask phone-number values for logs and toasts.                |
+| `buildHostPayload(order)`        | `(order) => object`                         | The exact `merchantPay` request the SDK would send.          |
+| `buildTransferPayload(transfer)` | `(transfer) => object`                      | The exact `transfertMoney` request the SDK would send.       |
+| `readIdenticalPrompt(error)`     | `(HostError) => { txnid, message } \| null` | Is this the duplicate-payment prompt, and its txnid?         |
+| `CONTINUE_ACTION`                | `'1'`                                       | The string the host needs to proceed past a duplicate.       |
 
 For a plugin the SDK does not wrap yet, `miniSDK.raw` is the low level:
 
@@ -492,7 +494,7 @@ The readable source lives in [`sdk/`](./sdk). What partners install is a **singl
 
 | Script                | What it does                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------ |
-| `yarn test`           | Vitest against the readable source, Node env with a `wx` stub (74 tests).            |
+| `yarn test`           | Vitest against the readable source, Node env with a `wx` stub (112 tests).           |
 | `yarn lint`           | ESLint 9 — strictest set on `sdk/**` (it ships to every partner).                    |
 | `yarn build`          | Bundle + obfuscate `sdk/` → `dist/sdk/` (deterministic, fixed seed).                 |
 | `yarn smoke:dist`     | Import and exercise the **obfuscated** bundle — obfuscation can't break it silently. |
@@ -510,7 +512,7 @@ The readable source lives in [`sdk/`](./sdk). What partners install is a **singl
 sdk/                 ← readable SOURCE (edited here, tested here)
   index.js             miniSDK — the frozen facade
   core/                errors · config · invoke
-  apis/                user · login · pay · contacts · deeplink · screen · scan
+  apis/                user · login · pay · transfer · contacts · deeplink · screen · scan
   helpers/             msisdn + identity
   mock/                a fake host for the SDK's own tests (not shipped)
   VERSION

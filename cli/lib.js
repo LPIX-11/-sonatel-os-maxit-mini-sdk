@@ -3,8 +3,8 @@
 //
 // Distribution model: the SDK is a FOLDER vendored into the mini-program
 // (TCMPP packs the project folder; node_modules never ships). The repo
-// publishes, per tag, `sdk/manifest.json` listing every file with its
-// SHA-256. The updater fetches the manifest for the wanted tag, downloads
+// publishes, per tag, `dist/sdk/manifest.json` listing every file of the
+// obfuscated build with its SHA-256. The updater fetches the manifest for the wanted tag, downloads
 // each file from raw.githubusercontent.com, verifies every hash, and swaps
 // the folder atomically. No tar, no dependencies, Node 18+.
 // ============================================================================
