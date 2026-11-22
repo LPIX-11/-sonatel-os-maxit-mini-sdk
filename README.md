@@ -123,6 +123,9 @@ const { txnid } = await miniSDK.pay({
   description: 'Pass journée',
 });
 
+// Send money to another subscriber — the host asks the PIN and applies its own fees
+await miniSDK.transfer({ amount: 30000, receiver: '770000002', receiverName: 'Fatou Sow' });
+
 // The contact book, in one shape
 const contacts = await miniSDK.contacts();
 
@@ -169,6 +172,7 @@ miniSDK.configure({
 | `loginCode`     | `'DEV-CODE-0001'`                                             | what `login()` returns.                                          |
 | `txnid`         | `() => 'MP-DEV-' + Date.now()`                                | a fresh fake transaction id for `pay()`.                         |
 | `identicalOnce` | `false`                                                       | make the next simulated `pay()` raise the duplicate prompt once. |
+| `transferFails` | `null`                                                        | an `ERROR_CODES` value every simulated `transfer()` fails with.  |
 | `contacts`      | three sample contacts                                         | what `contacts()` returns.                                       |
 | `deeplink`      | `null`                                                        | what `deeplink()` resolves from.                                 |
 | `scanCode`      | `'DEV-SCAN-0001'`                                             | what `scan()` returns.                                           |
@@ -273,6 +277,32 @@ const { txnid, confirmedIdentical, sent, raw } = await miniSDK.pay(
 | `HOST_ERROR` | An unnamed failure. **Money may have moved.**              |   `true`    |
 
 > ⚠️ **After an `uncertain` error, do not let the user pay again until you have verified.** The SDK runs the payment and tells you the truth; recording the debt, verifying an uncertain outcome, and retrying fulfilment are **your app's** job — see [What this is not](#-what-this-is-not).
+
+---
+
+### 💸 `miniSDK.transfer(request)`
+
+One Orange Money transfer **from the user to another subscriber**. You say who and how much; the host takes the sender from its own session, computes the fees itself, shows its summary and asks the PIN.
+
+```javascript
+const { txnid, sender, sent } = await miniSDK.transfer({
+  amount: 30000,
+  receiver: '77 000 00 02', // any spelling; sent as nine digits
+  receiverName: 'Fatou Sow', // shown on the host's summary
+});
+```
+
+| Field          | Type     | Note                              |
+| -------------- | -------- | --------------------------------- |
+| `amount`       | `number` | XOF, a positive integer.          |
+| `receiver`     | `string` | A Senegalese mobile number.       |
+| `receiverName` | `string` | Optional, for the host's summary. |
+| `message`      | `string` | Optional, for the host's summary. |
+
+**Returns** `Promise<{ txnid, sender, sent, raw }>` — `txnid` may be `null` (the host does not always get one); `sender` is the number the host debited; `sent` is the request that left the app.
+**Throws** `INVALID` before anything leaves · `CANCELLED` when the user backed out (nothing debited) · `REFUSED` (balance, limits) · `TIMEOUT` / `HOST_ERROR` with `uncertain: true` — **check before offering to pay again**.
+
+> 🧾 **No `sender`, no `fees`.** The host ignores both: it debits whoever is signed in and applies its own tariff. An app must not promise a fee-free transfer.
 
 ---
 

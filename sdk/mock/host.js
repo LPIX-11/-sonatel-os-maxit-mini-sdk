@@ -49,6 +49,21 @@ export const createMockHost = (fixtures = {}, { latencyMs = 120, identicalOnce =
       }
       return ok({ txnid: data.txnid || fx.txnid() });
     },
+    transfertMoney: (data) => {
+      // The real host reads a receiver and an amount; the sender is its own
+      // session's and the fees are its own computation.
+      if (!data || !data.receiver || !data.amount) {
+        return ko('Input body');
+      }
+      return ok({
+        code: 'SUCCEED',
+        sender: fx.user.msisdn,
+        firstName: fx.user.firstName,
+        lastName: fx.user.lastName,
+        txnid: fx.txnid(),
+        amount: String(data.amount),
+      });
+    },
     contactList: (data) =>
       data !== undefined
         ? ok({ contacts: [] })

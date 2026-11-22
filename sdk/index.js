@@ -7,6 +7,7 @@
 //   const user  = await miniSDK.user();            // { msisdn, fullName, … }
 //   const code  = await miniSDK.login();           // one-time code for the auth broker
 //   const { txnid } = await miniSDK.pay({ amount, receiver, receiverName, message, serviceId });
+//   const sent  = await miniSDK.transfer({ amount, receiver, receiverName });  // person to person
 //   const book  = await miniSDK.contacts();        // [{ name, msisdn: [] }]
 //   const link  = await miniSDK.deeplink({ launch: options });   // { page, id, … } | null
 //   const read  = await miniSDK.scan();            // { code }
@@ -33,6 +34,7 @@ import {
   CONTINUE_ACTION,
   API as PAY_API,
 } from './apis/pay.js';
+import { transfer, buildTransferPayload, API as TRANSFER_API } from './apis/transfer.js';
 import { contacts, normaliseContacts, API as CONTACTS_API } from './apis/contacts.js';
 import {
   deeplink,
@@ -46,13 +48,14 @@ import { scan, API as SCAN_API } from './apis/scan.js';
 import { normaliseMsisdn, isSenegalMobile, identityOf } from './helpers/msisdn.js';
 
 /** The SDK version, kept in step with sdk/VERSION by the release script. */
-export const VERSION = '0.1.5';
+export const VERSION = '0.2.0';
 
 /** The host plugins this SDK speaks to, by SDK method. */
 export const HOST_APIS = Object.freeze({
   user: USER_API,
   login: LOGIN_API,
   pay: PAY_API,
+  transfer: TRANSFER_API,
   contacts: CONTACTS_API,
   deeplink: DEEPLINK_API,
   screen: SCREEN_API,
@@ -84,6 +87,7 @@ export const miniSDK = Object.freeze({
   user,
   login,
   pay,
+  transfer,
   contacts,
   deeplink,
   resetDeeplink,
@@ -105,6 +109,7 @@ export const miniSDK = Object.freeze({
     maskParams,
     readIdenticalPrompt,
     buildHostPayload,
+    buildTransferPayload,
     CONTINUE_ACTION,
   }),
 });
@@ -118,6 +123,7 @@ export {
   user,
   login,
   pay,
+  transfer,
   contacts,
   deeplink,
   resetDeeplink,
@@ -137,5 +143,6 @@ export {
   maskParams,
   readIdenticalPrompt,
   buildHostPayload,
+  buildTransferPayload,
   CONTINUE_ACTION,
 };

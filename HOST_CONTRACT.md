@@ -57,11 +57,36 @@ Plugins are **not ready the instant the app launches**: the first `userInfos` or
 
 What follows for a mini-program: the debt record must exist BEFORE the call (then a cold start finds it and can ask the oracle, which is what `checkout.js` in mp-events does), and nothing can be waited on across a process death. The fix that belongs to the host is open question 5.
 
+## `transfertMoney`
+
+Person-to-person Orange Money transfer. Read in the host's source (samea-mobile `_handleTransfert` / `_processTransfert`, 2026-11-22); not yet observed on a device through the SDK.
+
+- Request: `{ receiver, amount }` — the only two fields the host requires (`MiniAppPayReq.isValid`). `receiverName` and `message` are read for its summary sheet.
+- **The sender is not the app's to say.** The host debits its own session's subscriber (`store.data['msisdn']`); a `sender` in the request is parsed and never used.
+- **The fees are not the app's to say either.** The host computes fees and tax for the amount (`getFees`, tariff `P2P`) and overwrites whatever the request carried, then shows them on its summary. An app cannot promise « sans frais ».
+- Flow: the host comes to the front, shows its summary, asks the PIN, calls Orange Money, returns to the mini-program. A wrong PIN is asked again inside the host and never reaches the app.
+- Answer on success: `data = { code: "SUCCEED", sender, firstName, lastName, txnid, amount }`. `txnid` is whatever Orange Money returned and **may be null**.
+- Refusals, all through `success` with `{ status_code: 400, result: "fail", message }`:
+  - « Input body » — receiver or amount missing.
+  - « User cancelled » — the user closed the summary. **Also what the host answers when its own summary step throws**, so it is not proof of a deliberate cancel; either way nothing was debited.
+  - « Pin is required » — the PIN pad was closed empty. Nothing debited.
+  - anything else — Orange Money's own message for the failed transfer (balance, limits, network).
+- Like `merchantPay`, the mini-program's process can die while the host is in front: after a `TIMEOUT` or an unnamed failure the debit **may have happened**.
+
 ## `contactList`
 
 - Request: **none** — the plugin answers an empty list when handed a `data` field (observed 2026-10).
 - Answer: seen as `{ data: { contacts } }`, `{ contacts }` and `{ data: [ … ] }`. Each contact: `{ name, msisdn }` with `msisdn` a string or an array of strings.
 - A refused permission arrives through `fail` with an `auth deny`-style message.
+
+## `share`
+
+Read in the host's source (samea-mobile `_handleShareElement`, 2026-11-22). **Not wrapped by the SDK**: no app of the fleet needs it through the SDK yet.
+
+- Request: `{ shareFile, message }`. `shareFile` is **required** and must be a `data:` URI of an image: the host decodes it, writes a temporary `.jpg` and opens the system share sheet with that file and `message` as its text. `message` defaults to « Partage de reçu ✅ ».
+- **There is no text-only share.** Without a `shareFile` the handler throws on parsing and answers « Échec du partage: … ». An app that wants to share a link or a code must render it into an image first.
+- `appInfo`, which older apps send, is not read.
+- Answer: `data = { message: "Partage effectué avec succès" }` as soon as the sheet was opened; the host cannot tell whether the user actually sent anything.
 
 ## `block_screen`
 
@@ -85,7 +110,7 @@ What follows for a mini-program: the debt record must exist BEFORE the call (the
 
 1. Is there a plugin registry / version the mini-program can read, so `supports()` can answer per plugin?
 2. ~~The documented spelling of the order id on `merchantPay`~~ — answered by the host source (2026-10-30): `idService`. Will a future build read `serviceId` too?
-3. A share plugin contract (`appInfo` semantics, file path vs data URI) — not wrapped until confirmed.
+3. ~~A share plugin contract (`appInfo` semantics, file path vs data URI)~~ — answered by the host source (2026-11-22, see `share`): a `data:` URI image is required, `appInfo` is not read. Open: will the host accept a text-only share?
 4. ~~Whether the slash-form deep link will be parsed host-side~~ — superseded 2026-10-30 by `MiniStartOptions.params`; is `getDeeplinkParams` still populated by the new build, or is the launch-options door now the only one?
 5. **A payment result that survives the mini-program's death** (2026-11-03). When `merchantPay` completes and the mini-program's process is gone, the answer is lost (see « What the host does while a payment runs »). Ask: keep the result in the main process keyed by `appId` (+ `idService`/`reference`), like `_pendingDeeplinkParams`, and hand it over at the next launch of that app — on the launch options (`MiniStartOptions.params`, e.g. `payment=<txnid>&idService=…`) or through a `getPendingPaymentResult` plugin the SDK would call on `onShow`, one-shot. Until then every mini-program must treat a cold start after a payment as « maybe debited » and verify.
 

@@ -20,6 +20,8 @@ export const DEFAULT_FIXTURES = Object.freeze({
   txnid: () => `MP-DEV-${Date.now()}`,
   /** Make the first payment of the process answer the identical prompt. */
   identicalOnce: false,
+  /** @type {string|null} an ERROR_CODES value every simulated transfer fails with; null = success */
+  transferFails: null,
   contacts: Object.freeze([
     { name: 'Abdoulaye Ndiaye', msisdn: ['777917330'] },
     { name: 'Fatou Sow', msisdn: ['776335377'] },

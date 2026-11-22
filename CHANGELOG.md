@@ -2,6 +2,13 @@
 
 All notable changes to the vendored `sdk/` folder. The updater prints the sections between your installed version and the one it installs.
 
+## [0.2.0] - 2026-11-22
+
+- **`miniSDK.transfer({ amount, receiver, receiverName?, message? })` — person-to-person Orange Money, through the host's `transfertMoney`.** Resolves `{ txnid, sender, sent, raw }`; rejects the usual `HostError` codes with `uncertain` on `TIMEOUT` / `HOST_ERROR`. The request is the two fields the host reads: no `sender` (the host debits its own session) and no `fees` (the host computes them), so an app can no longer believe it set either. The call waits the payment's ten minutes. « User cancelled » and « Pin is required » both read as `CANCELLED`; the generic classifier filed the second under `REFUSED`.
+- Simulation: `fixtures.transferFails` (an `ERROR_CODES` value) makes every simulated transfer fail that way, so refusal and uncertainty screens can be rehearsed in DevTools. The mock host answers `transfertMoney`.
+- `miniSDK.helpers.buildTransferPayload`, `HOST_APIS.transfer`.
+- HOST_CONTRACT: `transfertMoney`, read in the host's source.
+
 ## [0.1.5] - 2026-11-03
 
 - **`miniSDK.pay` sends the correlation key under BOTH spellings, `idService` and `serviceId`, one value.** 0.1.0 → 0.1.4 sent one key only (`idService` by default) on the belief that the host refused the pair; the host's code refuses neither, its source on disk reads `idService`, and the build in customers' hands may read the other name — BRT, the one mini-program whose key is proven in the Orange Money ledger, has always sent both. An order that gives the two spellings with different values is still `INVALID`. The mock host no longer refuses the pair either.
